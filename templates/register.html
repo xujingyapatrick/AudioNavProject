@@ -1,0 +1,15 @@
+{% extends "layout.html" %}
+{% block body %}
+  <h2>Register</h2>
+  {% if error %}<p class="error"><strong>Error:</strong> {{ error }}{% endif %}
+  <form>
+    <dl>
+      <dt>Email:
+      <dd><input type="text" name="email" id="email">
+      <dt>Password:
+      <dd><input type="password" name="password" id="password">
+
+      <dd><button onclick="Register()">submit</button>
+    </dl>
+  </form>
+{% endblock %}
