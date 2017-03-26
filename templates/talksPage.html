@@ -1,68 +1,146 @@
 {% extends "layout.html" %}
 {% block body %}
-  <h2>Square</h2>
-  {% if error %}<p class="error"><strong>Error:</strong> {{ error }}{% endif %}
-  <div class="container">
-    <div class="container-fluid">
-      <div class="row">
-        
-        <div class="col-sm-3 col-md-2 sidebar">
-          <ul class="nav nav-sidebar">
-            {% for talk in talks %}
-              <li onclick="ShowTalk({{talk}})" id="{{talk}}"> {{ talk }} <span class="sr-only">(current)</span></li>
-            {% endfor %}
-          </ul>
+  <h2 id="pageTypeDefine">{{pagetype}}</h2>
+  <div class="container-fluid">
+    <div class="row">
+      <div id="talksSelect" class="col-sm-3 col-md-2 sidebar">
+        <ul class="nav nav-sidebar">
+          {% for talk in talkList %}
+            {% set talkString=talk['talkString'] %}
+            <li class="" onclick="ShowTalk('{{talkString}}')" id="talk{{talk['talkId']}}"><a> {{ talk['talkId'] }} <span class="sr-only">(current)</span></a></li>
+          {% endfor %}
+        </ul>
+      </div>
+
+      <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
+        <h1 class="page-header">{{pagetype}}</h1>
+        <h2>Title</h2>
+        <h3 class="sub-header" id="talkTitle"></h3>
+        <h2>Tags</h2>
+        <h3 class="sub-header" id="talkTags"></h3>
+        <h2>Description</h2>
+        <h3 class="sub-header" id="talkDescription"></h3>
+
+        <h2 class="sub-header">Audio</h2>
+        <div class="table-responsive">
+          <table class="table table-striped">
+            <thead>
+              <tr>
+                <th>Audio ID</th>
+                <th>Tags</th>
+                <th>Response</th>
+              </tr>
+            </thead>
+            <tbody id="audioTable">
+            </tbody>
+          </table>
         </div>
 
 
-        <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
-          <h1 class="page-header">Dashboard</h1>
-
-          <div class="row placeholders">
-            <div class="col-xs-6 col-sm-3 placeholder">
-              <img src="data:image/gif;base64,R0lGODlhAQABAIAAAHd3dwAAACH5BAAAAAAALAAAAAABAAEAAAICRAEAOw==" width="200" height="200" class="img-responsive" alt="Generic placeholder thumbnail">
-              <h4>Label</h4>
-              <span class="text-muted">Something else</span>
-            </div>
-            <div class="col-xs-6 col-sm-3 placeholder">
-              <img src="data:image/gif;base64,R0lGODlhAQABAIAAAHd3dwAAACH5BAAAAAAALAAAAAABAAEAAAICRAEAOw==" width="200" height="200" class="img-responsive" alt="Generic placeholder thumbnail">
-              <h4>Label</h4>
-              <span class="text-muted">Something else</span>
-            </div>
-            <div class="col-xs-6 col-sm-3 placeholder">
-              <img src="data:image/gif;base64,R0lGODlhAQABAIAAAHd3dwAAACH5BAAAAAAALAAAAAABAAEAAAICRAEAOw==" width="200" height="200" class="img-responsive" alt="Generic placeholder thumbnail">
-              <h4>Label</h4>
-              <span class="text-muted">Something else</span>
-            </div>
-            <div class="col-xs-6 col-sm-3 placeholder">
-              <img src="data:image/gif;base64,R0lGODlhAQABAIAAAHd3dwAAACH5BAAAAAAALAAAAAABAAEAAAICRAEAOw==" width="200" height="200" class="img-responsive" alt="Generic placeholder thumbnail">
-              <h4>Label</h4>
-              <span class="text-muted">Something else</span>
-            </div>
-
-          </div>
-
-          <h2 class="sub-header">Audio</h2>
-          <div class="table-responsive">
-            <table class="table table-striped">
-              <thead>
-                <tr>
-                  <th>Audio ID</th>
-                  <th>Tags</th>
-                  <th>Response</th>
-                </tr>
-              </thead>
-              <tbody id="audioTable">
-              </tbody>
-            </table>
-          </div>
-
-
-        </div>
       </div>
     </div>
+  </div>
 
-  </div> <!-- /container -->
+  
+  <!-- <script type="text/javascript" src="js/HZRecorder.js"></script> -->
+  <script src="{{ url_for('static', filename='js/HZRecorder.js') }}"></script>
 
+  <script>
+      var recorder;
+
+      var audio = document.querySelector('audio');
+
+      function StartRecording() {
+          var pagetype=document.getElementById("pageTypeDefine");
+          // console.log(ele.innerHTML);
+          if(pagetype.innerHTML.toString()!='MOMENTS'){
+            window.location.replace("http://192.168.1.220:5000/api/v1/login");
+          }
+          else{
+            HZRecorder.get(function (rec) {
+                recorder = rec;
+                recorder.start();
+            });
+            }
+          }
+
+      function stopRecording() {
+          recorder.stop();
+      }
+
+      function PlayAudio(audioName) {
+          console.log("play performed");
+          var req = new XMLHttpRequest();
+          var url ='http://192.168.1.220:5000/api/v1/audio?audioName='+audioName;
+          // "http://localhost:5000/api/v1/login";
+          req.open("GET", url, true);
+          req.responseType="blob";
+          req.setRequestHeader("Content-type", "application/json");
+          req.onreadystatechange = function () { 
+              if (req.readyState == 4 && req.status == 200) {
+                  console.log("received data from server");
+                  var blob = req.response;
+                  var au = new Audio(window.URL.createObjectURL(blob));
+                  au.play();
+                  
+                  // audio.src = window.URL.createObjectURL(blob);
+                  // audio.play();
+                  console.log("play finished !!!!!");
+                  // if (json['info']!='error') {
+                  //     audio.src = window.URL.createObjectURL(json['info']);
+                  // }
+                  // else{
+                  //     alert("error: can not play!!");
+                  // }
+                  // document.getElementById("statusimage").src=json['status']+".gif"
+                  // document.getElementById("speed").innerHTML="Current moving speed: "+json['speed']+"mile/h"
+                  
+              }
+          }
+          req.send(null);             
+
+
+
+          // req=
+
+          // Play(audio, audioName);
+          // // recorder.play(audio, audioName);
+      }
+
+      function UploadAudio(audioName) {
+          recorder.upload(audioName, function (state, e) {
+              switch (state) {
+                  case 'uploading':
+                      //var percentComplete = Math.round(e.loaded * 100 / e.total) + '%';
+                      break;
+                  case 'ok':
+                      //alert(e.target.responseText);
+                      alert("upload success");
+                      break;
+                  case 'error':
+                      alert("upload error");
+                      break;
+                  case 'cancel':
+                      alert("upload canceled");
+                      break;
+              }
+          });
+      }
+  </script>
+
+
+  <script type="text/javascript">
+    var ele=document.getElementById("pageTypeDefine");
+    // console.log(ele.innerHTML);
+    if(ele.innerHTML.toString()=='MOMENTS'){
+      var tag=document.getElementById("momentsTag");
+      tag.setAttribute("class",'active');
+    }
+    else{
+      var tag=document.getElementById("squareTag");
+      tag.setAttribute("class",'active');
+    }
+    
+  </script>
 
 {% endblock %}

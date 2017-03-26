@@ -78,7 +78,7 @@ class User(object):
         return str(self.userId)
 
 
-defaultAudio={"audioName":"default", "tags":["default"],"preAudioName":"default", "nextAudioNames":["default"], "postTime":0.0, "timeLength":0.0, "fileSize":0, "posterId":0}
+defaultAudio={"audioName":"default", "tags":["default"],"preAudioName":"default", "nextAudioNames":["default"], "postTime":str(0.0), "timeLength":str(0.0), "fileSize":0, "posterId":0}
 class Audio(object):
 #     """docstring for audio"""
 #     audioName="default"
@@ -117,10 +117,10 @@ class Audio(object):
         self.audioName=audioName
         return True
     def setPostTime(self,postTime):
-        self.postTime=postTime
+        self.postTime=str(postTime)
         return True
     def setTimeLength(self,timeLength):
-        self.timeLength=timeLength
+        self.timeLength=str(timeLength)
         return True
     def setFileSize(self,fileSize):
         self.fileSize=fileSize
@@ -152,7 +152,7 @@ class Audio(object):
 ##############################################################
 ######Talk class
 ##############################################################
-defaultTalk={"talkId":0, "title":"default","description":"default","tags":["default"],"startTime":time.time(),"lastUpdateTime":0.0, "talkerIds":[0],"audioCount":0,"audios":{"default":Audio().toDictionary()}}
+defaultTalk={"talkId":0, "title":"default","description":"default","tags":["default"],"startTime":str(time.time()),"lastUpdateTime":str(0.0), "talkerIds":[0],"audioCount":0,"audios":{"default":Audio().toDictionary()}}
 class Talk(object):
     """docstring for talk"""
 #     talkId=0
@@ -215,7 +215,7 @@ class Talk(object):
         return True
 
     def setLastUpdateTimeAsNow(self):
-        self.lastUpdateTime=time.time()
+        self.lastUpdateTime=str(time.time())
         return True
 
     def setAudioCount(self,audioCount):
@@ -243,10 +243,11 @@ class Talk(object):
     def addAudioToAudios(self,audio):
         if audio.audioName not in self.audios:
             self.audios[audio.audioName]=audio
-            if audio.preAudioName !="default":
-                preAudio=self.audios[audio.preAudioName]
-                preAudio.nextAudioNames.append(audio.audioName)
-                self.audios[audio.preAudioName]=preAudio.nextAudioNames
+        
+            preAudio=self.audios[audio.preAudioName]
+            preAudio.nextAudioNames.append(audio.audioName)
+            self.audios[audio.preAudioName]=preAudio
+        
             self.audioCount=self.audioCount+1
             self.addTalkerIdToTalkerIds(audio.posterId)
             self.setLastUpdateTimeAsNow()

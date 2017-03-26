@@ -10,8 +10,8 @@ import botocore
 class S3Manager(object):
     """docstring for user"""
 #     userId=0
-    s3=None
-    bucket=None
+#     s3=None
+#     bucket=None
 
     def __init__(self):
         self.s3=boto3.resource('s3')
@@ -35,7 +35,12 @@ class S3Manager(object):
     
     def getFile(self,fileId):
         obj=self.bucket.Object(fileId)
-        return obj.get()['Body'].read()
+#         print('OBJOBJOBJ')
+#         print(obj)
+        data=obj.get()['Body'].read()
+#         print('DATA DATA')
+#         print(data)
+        return data
     
     def deleteFile(self,fileId):
         self.bucket.Object(fileId).delete()

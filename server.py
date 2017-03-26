@@ -4,23 +4,24 @@ Created on Mar 7, 2017
 @author: patrick
 '''
 #THIS IS A WEBSERVER FOR DEMONSTRATING THE TYPES OF RESPONSES WE SEE FROM AN API ENDPOINT
-from flask import Flask, request, jsonify, render_template, redirect
+from flask import Flask, request, jsonify, render_template, redirect, Response
 from flask_login import current_user, LoginManager, login_user, logout_user, login_required 
 import json
 from DynamoDB.itemDefinition import User, Talk, Audio
 from DynamoDB.databaseManager import databaseWebUserManager, databaseTalksManager
-from S3 import s3Manager
+from S3.s3Manager import S3Manager
 from time import sleep, time
 from sys import getsizeof
 from flask.helpers import url_for
 
 
 app = Flask(__name__,static_url_path='')
+app.secret_key = '123456' 
 ##init login manager
 login_manager = LoginManager()
 login_manager.init_app(app)
 
-login_manager.login_view = 'url_for(login)'
+login_manager.login_view = 'loadLoginPage'
 
 @login_manager.user_loader
 def load_user(userId):
@@ -31,13 +32,16 @@ def load_user(userId):
 #log in
 @app.route('/api/v1/login', methods=['POST'])
 def login():
-    info = json.loads(request.data)
+#     print('LOGIN PRINT')
+#     print(request.data)
+    info = request.get_json()
     userId = info.get('userId', '-1')
     password = info.get('password', '')
     
     dbUserManager=databaseWebUserManager()
     user=dbUserManager.getUser(int(userId))
-
+    print("USER!!")
+    print(json.dumps(user.toDictionary()))
     if user and user.getPassword()==password:
         login_user(user)
         return jsonify({"userId": user.get_id(),
@@ -47,12 +51,13 @@ def login():
                         "reason": "UserId or Password Error"})
 
 #logout current user
-@app.route('/api/v1/login', methods=['DELETE'])
+@app.route('/api/v1/logout', methods=['GET'])
 @login_required
 def logout():
     logout_user()
-    return jsonify(**{'result': 200,
-                      'data': {'message': 'logout success'}})
+    return redirect(url_for('loadPublicSquarePage'))
+#     return jsonify(**{'result': 200,
+#                       'data': {'message': 'logout success'}})
 
 
 #get login page
@@ -92,11 +97,14 @@ def getCss():
 #submit register information 
 @app.route('/api/v1/register',methods=['PUT'])
 def createUser():
-    info=json.load(request.data)
+    info=request.get_json()
     userManager=databaseWebUserManager()
     userId=userManager.createNewUser()
+    sleep(0.5)
     userManager.updateEmail(userId, info.get('email','example.com'))
+    sleep(0.5)
     userManager.updatePassword(userId, info.get('password','123456'))
+    sleep(0.5)
     return jsonify(**{'userId': userId})
 
 
@@ -107,7 +115,11 @@ def getAllTalks():
     talks=dbManager.getAllTalks()
     talkDic={}
     for talk in talks:
+#         print("TALK:")
+#         print(talk.toDictionary())
         talkDic[str(talk.getTalkId())]=talk.toDictionary()
+#     print("JSONIFY:jsonify(**talkDic)")
+#     print(jsonify(**talkDic).get_data())
     return jsonify(**talkDic)
 
 #get all personal talks to show
@@ -118,11 +130,14 @@ def getPersonalTalks():
     userId=user.getUserId()
     userManager=databaseWebUserManager()
     talkIds=userManager.getTalksFromUser(userId)
+    if talkIds==[0]:
+        return jsonify(**{})
     talkManager=databaseTalksManager()
     talkDic={}
     for talkId in talkIds:
-        talkDic[str(talkId)]=talkManager.getTalk(talkId).toDictionary()
-        sleep(0.5)
+        if talkId!=0:
+            talkDic[str(talkId)]=talkManager.getTalk(talkId).toDictionary()
+            sleep(0.5)
     return jsonify(**talkDic)
 
 #get the home page 
@@ -133,31 +148,43 @@ def loadHomePage():
 
 @app.route('/api/v1/public',methods=['GET'])
 def loadPublicSquarePage():
-    jsonTalks=getAllTalks()
-    talks=json.load(jsonTalks)
     
-    return render_template('talksPage.html',talks=talks)
+    pagetype='SQUARE'
+    jsonifyTalks=getAllTalks()
+    talks=json.loads(jsonifyTalks.get_data())
+    for talk in talks:
+#         print("TALK IN TALKS")
+#         print(talk)
+#         print(talks[talk])
+        talks[talk]['talkString']=json.dumps(talks[talk])
+    talkList=[]
+    for talk in sorted(talks):
+        talkList.append(talks[talk])
+    return render_template('talksPage.html',talkList=talkList,pagetype=pagetype)
 #     return app.send_static_file('index.html')
 
 @app.route('/api/v1/private',methods=['GET'])
 @login_required
 def loadPrivateMomentsPage():
     user=current_user
-    if user.is_authenticated():
-        jsonTalks=getPersonalTalks()
-        talks=json.load(jsonTalks)
-        return render_template('talksPage.html',talks=talks)
-    else:
-        return redirect(url_for('loadRegisterPage'))
+    pagetype='MOMENTS'
+    print("CURRENT USER")
+    print(user.get_id())
+    jsonifyTalks=getPersonalTalks()
+    talks=json.loads(jsonifyTalks.get_data())
+    for talk in talks:
+        talks[talk]['talkString']=json.dumps(talks[talk])
+    
+    talkList=[]
+    for talk in sorted(talks):
+        talkList.append(talks[talk])
+    return render_template('talksPage.html',talkList=talkList, pagetype=pagetype)
+
+@app.route('/api/v1/newtalk',methods=['GET'])
+def loadNewTalkPage():
+    return render_template('newTalkPage.html')
 #     return app.send_static_file('index.html')
 
-# @app.route('/api/v1/talkpage',methods=['GET'])
-# def loadTalkPage():
-#     jsonTalk=getTalk()
-#     talk=json.load(jsonTalk)
-#     
-#     return render_template('talk.html')
-# #     return app.send_static_file('index.html')
 
 
 #create a new talk 
@@ -168,16 +195,16 @@ def createNewTalk():
     info=request.get_json()
     title=info.get('title','unknown')
     description=info.get('description','unknown')
-    tags=info.get('tags',['empty'])
+    tags=info.get('tags',['default'])
     talkManager=databaseTalksManager()
-    talkId=talkManager.createNewTalk()
-    talk=Talk()
-    talk.setTalkId(talkId)
-    talk.setTitle(title)
-    talk.setDescription(description)
-    talk.setTags(tags)
-    sleep(0.5)
-    talkManager.updateTalk(talkId, talk)
+    talkId=talkManager.createNewTalk(title,tags,description)
+#     talk=Talk()
+#     talk.setTalkId(talkId)
+#     talk.setTitle(title)
+#     talk.setDescription(description)
+#     talk.setTags(tags)
+#     sleep(0.5)
+#     talkManager.updateTalk(talkId, talk)
     return jsonify(**{'talkId':talkId})
 #  
 #     data=request.get_json()
@@ -201,42 +228,60 @@ def getTalk():
 @app.route('/api/v1/audio',methods=['GET'])
 def getAudio():
     audioName=request.args.get('audioName',default="default",type=str)
-    if audioName=="default":
-        return "error: you should specify an audioId"
-    s3=s3Manager()
+    audSpi=audioName.split('s')
+    if audSpi[2]=="default":
+        return jsonify(**{'info':'error'})
+    s3=S3Manager()
     f=s3.getFile(str(audioName))
-    return jsonify(**{'info':f})
-    
+#     return jsonify(**{'info':f})
+    return Response(f)
 
 #get a audio talk 
-@app.route('/api/v1/audio',methods=['PUT'])
+@app.route('/api/v1/audio',methods=['POST'])
+@login_required
 def createAudio():
-    userId=request.args.get('userId',default=0,type=int)
-    if userId==0:
-        return "error: you should specify an userId"
-    talkId=request.args.get('talkId',default=0,type=int)
-    if talkId==0:
-        return"error: you should specify an talkId"
-    preAudioName=request.args.get('preAudioName',default="default",type=str)
-    if talkId=="default":
-        return"error: you should specify an preAudioName"
-    info=json.load(request.data)
+#     print("REQUEST!!")
+#     print(request.form.to_dict())
+#     print(request.files.to_dict())
+    preDic=request.form.to_dict()
+    preAudioName=preDic.get('preName','default')
+    fileDic=request.files.to_dict()
+    soundFile=fileDic.get('audioData','default')
+
+#     print("PREAUDIONAME!")
+#     print(preAudioName)
+    
+    if preAudioName=='default':
+        return jsonify({'info':'error: no prename'})
+    
+    tmp=preAudioName.split('s')
+    talkId=int(tmp[1])
+    userId=int(current_user.get_id())
+    
+#     preAudioName=request.args.get('preAudioName',default="default",type=str)
+#     if talkId=="default":
+#         return"error: you should specify an preAudioName"
+#     info=json.load(request.data)
     talkManager=databaseTalksManager()
     talk=talkManager.getTalk(talkId)
+    if userId not in talk.talkerIds:
+        usrManager=databaseWebUserManager()
+        usrManager.addTalkToUser(userId, talkId)
+        
     audio=Audio()
-    audioName=str(userId)+"_"+str(talkId)+"_"+str(talk.getAudioCount()+1)
+    audioName=str(userId)+"s"+str(talkId)+"s"+str(talk.getAudioCount()+1)
     audio.setAudioName(audioName)
     audio.setPreAudioName(preAudioName)
     audio.setPosterId(userId)
-    audio.setPostTime(time())
-    audio.setFileSize(getsizeof(info.get('data','default',type=str)))
-    audio.setTimeLength(1.0)
-    
-    s3=s3Manager()
-    s3.storeFile(audioName,info.get('data','default',type=str))
+    audio.setPostTime(str(time()))
+    audio.setFileSize(getsizeof(soundFile))
+    audio.setTimeLength('1.0')
+#     tags=talkManager.createAudioTags(soundFile)
+    s3=S3Manager()
+    s3.storeFile(audioName,soundFile)
     talkManager.addAudio(talkId, audio)
     
-    return jsonify({'info':'create audio success'})
+    return jsonify({'info':'success'})
 
 
 

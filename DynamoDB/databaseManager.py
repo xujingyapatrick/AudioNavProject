@@ -10,6 +10,13 @@ import json
 import decimal
 from boto3.dynamodb.conditions import Key, Attr
 from botocore.exceptions import ClientError
+import urllib2
+import requests
+import time
+import nltk
+from docutils.nodes import description
+
+
 # from database_setup import Base, Music
 # Helper class to convert a DynamoDB item to JSON.
 # class DecimalEncoder(json.JSONEncoder):
@@ -58,11 +65,12 @@ class databaseWebUserManager():
         else:
             item = response['Item']
             print("GetItem succeeded:")
-            print(item)
+#             print(item)
             self.table.update_item(Key={'user_id':0},UpdateExpression="set info = info + :val",ExpressionAttributeValues={':val':1},ReturnValues="UPDATED_NEW")
-            
-            self.table.put_item(Item={'user_id':int(item['info']),'info':User().toDictionary()})
-            return item['info']
+            usr=User().toDictionary()
+            usr['userId']=int(item['info'])
+            self.table.put_item(Item={'user_id':int(item['info']),'info':usr})
+            return int(item['info'])
         
     def getUser(self, userId):
         try:
@@ -72,13 +80,18 @@ class databaseWebUserManager():
                 }
             )
         except ClientError as e:
+            print('ERROR')
             print(e.response['Error']['Message'])
             return None
         else:
+            print('RESPONSE')
+            print(response)
+            if 'Item' not in response:
+                return None
             item = response['Item']
             print("GetItem succeeded:")
             item['info']=self.changeDynamoDBDicToPythonDic(item['info'])
-            print(json.dumps(item['info']))
+#             print(json.dumps(item['info']))
             return User(item['info'])
         
     def deleteUser(self,userId):
@@ -130,7 +143,7 @@ class databaseWebUserManager():
             Key={
                 'user_id': userId
             },
-            UpdateExpression="set info.email = :r",
+            UpdateExpression="set info.password = :r",
             ExpressionAttributeValues={
                 ':r': password
             },
@@ -228,8 +241,8 @@ class databaseTalksManager():
     
     def changeDynamoDBDicToPythonDic(self,talkDic):
         talkDic['talkId']=int(talkDic['talkId'])
-        talkDic['startTime']=float(talkDic['startTime'])
-        talkDic['lastUpdateTime']=float(talkDic['lastUpdateTime'])
+#         talkDic['startTime']=float(talkDic['startTime'])
+#         talkDic['lastUpdateTime']=float(talkDic['lastUpdateTime'])
         talkerIds=[]
         for id in talkDic['talkerIds']:
             talkerIds.append(int(id))
@@ -237,15 +250,15 @@ class databaseTalksManager():
         talkDic['audioCount']=int(talkDic['audioCount'])
         audios={}
         for ad in talkDic['audios']:
-            talkDic['audios'][ad]["postTime"]=float(talkDic['audios'][ad]["postTime"])
-            talkDic['audios'][ad]["timeLength"]=float(talkDic['audios'][ad]["timeLength"])
-            talkDic['audios'][ad]["fileSize"]=float(talkDic['audios'][ad]["fileSize"])
+#             talkDic['audios'][ad]["postTime"]=float(talkDic['audios'][ad]["postTime"])
+#             talkDic['audios'][ad]["timeLength"]=float(talkDic['audios'][ad]["timeLength"])
+            talkDic['audios'][ad]["fileSize"]=int(talkDic['audios'][ad]["fileSize"])
             talkDic['audios'][ad]["posterId"]=int(talkDic['audios'][ad]["posterId"])
             audios[ad]=talkDic['audios'][ad]
         talkDic['audios']=audios
         return talkDic
 
-    def createNewTalk(self):
+    def createNewTalk(self,title='unknown',tags=['default'],description='unknown'):
         try:
             response = self.table.get_item(
                 Key={
@@ -257,10 +270,19 @@ class databaseTalksManager():
         else:
             item = response['Item']
             print("GetItem succeeded:")
-            print(item)
+#             print(item)
             self.table.update_item(Key={'talk_id':0},UpdateExpression="set info = info + :val",ExpressionAttributeValues={':val':1},ReturnValues="UPDATED_NEW")
             talk=Talk()
             talk.talkId=int(item['info'])
+            talk.title=title
+            talk.tags=tags
+            talk.description=description
+            audDic=talk.audios
+            audDic['default'].audioName='0s'+str(talk.talkId)+'sdefault'
+            audDic[audDic['default'].audioName]=audDic['default']
+            audDic.pop('default')
+#             talk.audios.pop('default')
+            talk.audios=audDic
             print(talk.toDictionary())
             self.table.put_item(Item={'talk_id':int(item['info']),'info':talk.toDictionary()})
             return int(item['info'])
@@ -288,7 +310,7 @@ class databaseTalksManager():
             FilterExpression=fe
             )
         talks=[]
-        print(response['Items'])
+#         print(response['Items'])
         for item in response['Items']:
             item['info']=self.changeDynamoDBDicToPythonDic(item['info'])
             talks.append(Talk(item['info']))
@@ -359,6 +381,8 @@ class databaseTalksManager():
             },
             ReturnValues="UPDATED_NEW"
         )
+        print("NEWTALKWITHNEWAUDIO")
+        print(talk.toDictionary())
         return True
             
             
@@ -376,7 +400,49 @@ class databaseTalksManager():
             ReturnValues="UPDATED_NEW"
         )
         return True
+    def createAudioTags(self,soundFile):
+        data = {'apikey':'a0eb3f3b-fef6-4377-b0b8-28585ab6390c',
+                'file':  soundFile
+                }
+        res=requests.post("https://api.havenondemand.com/1/api/async/recognizespeech/v1", files=data)
+        print(res.text)
+        resJson=json.loads(res.text)
+        jobId=resJson.get('jobID','toofast')
+        while jobId=='toofast':#in case the post is too frequent
+            time.sleep(20)
+            res=requests.post("https://api.havenondemand.com/1/api/async/recognizespeech/v1", files=data)
+            print(res.text)
+            resJson=json.loads(res.text)
+            jobId=resJson.get('jobID','toofast')
+                    
+        para={'apikey':'a0eb3f3b-fef6-4377-b0b8-28585ab6390c'}
+        print(para)
+        time.sleep(1)
+        response=requests.post("https://api.havenondemand.com/1/job/status/"+jobId,data=para)
+        jsonData=response.json()
+        count=0;
+        while(jsonData['status']!='finished'):#wait until the process is done
+            count=count+1;
+            print("checking: "+str(count))
+            time.sleep(20)
+            response=requests.post("https://api.havenondemand.com/1/job/status/"+jobId,data=para)
+            jsonData=response.json()
+        print(response.text)
+        docu=jsonData['actions'][0]['result']['document']
+        if len(docu)==0:
+            tags=[]
+        else:
+            contents=docu[0]['content']
+            contents=contents.replace("<Music/Noise>","")
+            contents=contents.replace('  ',' ')
+#           print(contents)
+            tags=nltk.word_tokenize(contents)
+        print('tags:::')
+        print(tags)
+#         time.sleep(3)
+
+        return tags
+#         res=urllib2.urlopen('https://api.havenondemand.com/1/api/async/recognizespeech/v1', data)
         
-    
         
 

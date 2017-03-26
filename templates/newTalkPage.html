@@ -1,0 +1,26 @@
+{% extends "layout.html" %}
+{% block body %}
+
+  <div class="container">
+
+    <form class="form-signin">
+      <h2 class="form-signin-heading">New Talk</h2>
+      <label class="sr-only">Title</label>
+      <input class="form-control" id="title" placeholder="Title" required autofocus>
+      <br>
+      <label class="sr-only">Tag</label>
+      <input class="form-control" id="tags" placeholder="Tag" required autofocus>
+      <br>
+      <label class="sr-only">Description</label>
+      <input class="form-control" id="description" placeholder="Description" required autofocus>
+      <br>
+      <button class="btn btn-lg btn-primary btn-block" onclick="CreateNewTalk()">Create</button>
+    </form>
+  </div>
+  <script type="text/javascript">
+    var ele=document.getElementById("createTalk");
+    ele.setAttribute("class",'active');
+  </script>
+  <link href="{{ url_for('static', filename='css/signin.css') }}" rel="stylesheet">
+
+{% endblock %}

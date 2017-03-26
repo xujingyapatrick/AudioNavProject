@@ -1,14 +1,26 @@
 {% extends "layout.html" %}
 {% block body %}
-  <h2>Login</h2>
-  {% if error %}<p class="error"><strong>Error:</strong> {{ error }}{% endif %}
-  <form>
-    <dl>
-      <dt>Userid:
-      <dd><input type="text" name="userid" id="userId">
-      <dt>Password:
-      <dd><input type="password" name="password" id="password">
-      <dd><button onclick="login()">submit</button> value="Login">
-    </dl>
-  </form>
+    
+    <div class="container">
+
+      <form class="form-signin">
+        <h2 class="form-signin-heading">Please login</h2>
+        <label for="userId" class="sr-only">User ID</label>
+        <input class="form-control" id="userId" placeholder="User Id" required autofocus>
+        <label for="password" class="sr-only">Password</label>
+        <input type="password" id="password" class="form-control" placeholder="Password" required>
+        <button class="btn btn-lg btn-primary btn-block" onclick="login()">Login</button>
+      </form>
+
+    </div> <!-- /container -->
+
+  <script type="text/javascript">
+    var ele=document.getElementById("loginTag");
+    ele.setAttribute("class",'active');
+    {% if current_user.is_authenticated %}
+      window.location.replace("http://192.168.1.220:5000/api/v1/public");  
+    {% endif %}
+  </script>
+  <link href="{{ url_for('static', filename='css/signin.css') }}" rel="stylesheet">
+
 {% endblock %}
