@@ -32,6 +32,7 @@ function login() {
 	        	alert(json["status"]);
 	        }
 	        else{
+	        	window.location.replace("http://192.168.1.220:5000/api/v1/public");
 	        	alert("login success!");
 
 	        }

@@ -21,6 +21,43 @@
       window.location.replace("http://192.168.1.220:5000/api/v1/public");  
     {% endif %}
   </script>
+  <script type="text/javascript">
+    function login() {
+
+    // document.getElementById("loginTag").className="active";
+    
+    var userId=parseInt(document.getElementById("userId").value);
+    var password=document.getElementById("password").value;
+    // Sending and receiving data in JSON format using POST mothod
+    //
+    var xhr = new XMLHttpRequest();
+    var url ="http://192.168.1.220:5000/api/v1/login";
+    // "http://localhost:5000/api/v1/login";
+    xhr.open("POST", url, true);
+    xhr.setRequestHeader("Content-type", "application/json");
+    xhr.onreadystatechange = function () { 
+        if (xhr.readyState == 4 && xhr.status == 200) {
+            var json = JSON.parse(xhr.responseText);
+            console.log(json)
+            if (json.hasOwnProperty("status")) {
+              alert(json["status"]);
+            }
+            else{
+              window.location.replace("http://192.168.1.220:5000/api/v1/public");
+              alert("login success!");
+
+            }
+            // document.getElementById("statusimage").src=json['status']+".gif"
+            // document.getElementById("speed").innerHTML="Current moving speed: "+json['speed']+"mile/h"
+            
+        }
+    }
+    xhr.send(JSON.stringify({"userId":userId, "password":password}));       
+    
+    }
+  </script>
+
+
   <link href="{{ url_for('static', filename='css/signin.css') }}" rel="stylesheet">
 
 {% endblock %}

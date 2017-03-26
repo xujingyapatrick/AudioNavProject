@@ -51,17 +51,26 @@
       var audio = document.querySelector('audio');
 
       function StartRecording() {
-          var pagetype=document.getElementById("pageTypeDefine");
-          // console.log(ele.innerHTML);
-          if(pagetype.innerHTML.toString()!='MOMENTS'){
-            window.location.replace("http://192.168.1.220:5000/api/v1/login");
-          }
-          else{
-            HZRecorder.get(function (rec) {
+              {% if current_user.is_authenticated %}
+                HZRecorder.get(function (rec) {
                 recorder = rec;
                 recorder.start();
-            });
-            }
+            });  
+              {% else %}
+                window.location.replace("http://192.168.1.220:5000/api/v1/login");
+              {% endif %}
+
+          // var pagetype=document.getElementById("pageTypeDefine");
+          // // console.log(ele.innerHTML);
+          // if(pagetype.innerHTML.toString()!='MOMENTS'){
+          //   window.location.replace("http://192.168.1.220:5000/api/v1/login");
+          // }
+          // else{
+          //   HZRecorder.get(function (rec) {
+          //       recorder = rec;
+          //       recorder.start();
+          //   });
+          //   }
           }
 
       function stopRecording() {
